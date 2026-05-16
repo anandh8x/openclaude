@@ -35,6 +35,8 @@ const RESTORED_KEYS = [
   'OPENAI_API_KEY',
   'CODEX_API_KEY',
   'CODEX_CREDENTIAL_SOURCE',
+  'XAI_OAUTH',
+  'XAI_OAUTH_CREDENTIAL_SOURCE',
   'CHATGPT_ACCOUNT_ID',
   'CODEX_ACCOUNT_ID',
   'ANTHROPIC_BEDROCK_BASE_URL',
@@ -184,6 +186,17 @@ function buildXaiProfile(overrides: Partial<ProviderProfile> = {}): ProviderProf
     baseUrl: 'https://api.x.ai/v1',
     model: 'grok-4',
     apiKey: 'xai-test-key',
+    ...overrides,
+  })
+}
+
+function buildXaiOAuthProfile(overrides: Partial<ProviderProfile> = {}): ProviderProfile {
+  return buildProfile({
+    provider: 'xai-oauth',
+    name: 'xAI Grok OAuth',
+    baseUrl: 'https://api.x.ai/v1',
+    model: 'grok-4.3',
+    apiKey: '',
     ...overrides,
   })
 }
@@ -686,6 +699,22 @@ describe('applyProviderProfileToProcessEnv', () => {
 
     expect(String(process.env.XAI_API_KEY)).toBe('xai-test-key')
     expect(getFreshAPIProvider()).toBe('xai')
+  })
+
+  test('xai-oauth profile sets OAuth marker without changing XAI_API_KEY', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+
+    applyProviderProfileToProcessEnv(buildXaiOAuthProfile())
+    const { getAPIProvider: getFreshAPIProvider } =
+      await importFreshProvidersModule()
+
+    expect(process.env.XAI_OAUTH).toBe('1')
+    expect(process.env.XAI_OAUTH_CREDENTIAL_SOURCE).toBe('oauth')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://api.x.ai/v1')
+    expect(process.env.OPENAI_MODEL).toBe('grok-4.3')
+    expect(process.env.XAI_API_KEY).toBeUndefined()
+    expect(getFreshAPIProvider()).toBe('openai')
   })
 })
 

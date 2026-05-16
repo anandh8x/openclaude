@@ -102,7 +102,10 @@ export {
 }
 
 export { routeForPreset, vendorIdForPreset, gatewayIdForPreset } from './compatibility.js'
-export { resolveProfileRoute } from './profileResolver.js'
+export {
+  normalizeProviderRouteAlias,
+  resolveProfileRoute,
+} from './profileResolver.js'
 export type { ResolvedProfileRoute } from './profileResolver.js'
 export type { ProviderPreset }
 export { PROVIDER_PRESET_MANIFEST } from './generated/integrationArtifacts.generated.js'

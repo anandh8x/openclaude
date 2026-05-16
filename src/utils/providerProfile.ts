@@ -70,6 +70,8 @@ const PROFILE_ENV_KEYS = [
   'OPENAI_API_KEY',
   'CODEX_API_KEY',
   'CODEX_CREDENTIAL_SOURCE',
+  'XAI_OAUTH',
+  'XAI_OAUTH_CREDENTIAL_SOURCE',
   'CHATGPT_ACCOUNT_ID',
   'CODEX_ACCOUNT_ID',
   'GEMINI_API_KEY',
@@ -133,6 +135,7 @@ export type ProviderProfile =
   | 'bedrock'
   | 'vertex'
   | 'xai'
+  | 'xai-oauth'
 
 export type ProfileEnv = {
   ANTHROPIC_BASE_URL?: string
@@ -151,6 +154,8 @@ export type ProfileEnv = {
   OPENAI_API_KEY?: string
   CODEX_API_KEY?: string
   CODEX_CREDENTIAL_SOURCE?: 'oauth' | 'existing'
+  XAI_OAUTH?: string
+  XAI_OAUTH_CREDENTIAL_SOURCE?: 'oauth'
   CHATGPT_ACCOUNT_ID?: string
   CODEX_ACCOUNT_ID?: string
   GEMINI_API_KEY?: string
@@ -309,7 +314,8 @@ export function isProviderProfile(value: unknown): value is ProviderProfile {
     value === 'github' ||
     value === 'bedrock' ||
     value === 'vertex' ||
-    value === 'xai'
+    value === 'xai' ||
+    value === 'xai-oauth'
   )
 }
 
@@ -806,6 +812,34 @@ function buildXaiProfileEnv(options: {
   }
 
   return env
+}
+
+function buildXaiOAuthProfileEnv(options: {
+  model?: string | null
+  baseUrl?: string | null
+  processEnv?: NodeJS.ProcessEnv
+}): ProfileEnv {
+  const processEnv = options.processEnv ?? process.env
+  const defaultBaseUrl =
+    getRouteDefaultBaseUrl('xai-oauth') ?? 'https://api.x.ai/v1'
+  const defaultModel = getRouteDefaultModel('xai-oauth') ?? 'grok-4.3'
+
+  return {
+    OPENAI_BASE_URL:
+      sanitizeProviderConfigValue(options.baseUrl) ||
+      sanitizeProviderConfigValue(processEnv.OPENAI_BASE_URL) ||
+      defaultBaseUrl,
+    OPENAI_MODEL:
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(options.model),
+      ) ||
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(processEnv.OPENAI_MODEL),
+      ) ||
+      defaultModel,
+    XAI_OAUTH: '1',
+    XAI_OAUTH_CREDENTIAL_SOURCE: 'oauth',
+  }
 }
 
 function getCompatibilityProfileFlag(
@@ -1312,6 +1346,24 @@ export async function buildLaunchEnv(options: {
       model: shellOpenAIModel || persistedOpenAIModel,
       baseUrl: shellOpenAIBaseUrl || persistedOpenAIBaseUrl,
       apiKey: xaiKey,
+      processEnv,
+    })
+    const customHeaders = shellCustomHeaders || persistedCustomHeaders
+    if (customHeaders) {
+      env.ANTHROPIC_CUSTOM_HEADERS = customHeaders
+    }
+
+    return buildCompatibilityProcessEnv({
+      processEnv,
+      compatibilityMode: 'openai',
+      profileEnv: env,
+    })
+  }
+
+  if (options.profile === 'xai-oauth') {
+    const env = buildXaiOAuthProfileEnv({
+      model: shellOpenAIModel || persistedOpenAIModel,
+      baseUrl: shellOpenAIBaseUrl || persistedOpenAIBaseUrl,
       processEnv,
     })
     const customHeaders = shellCustomHeaders || persistedCustomHeaders

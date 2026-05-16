@@ -627,6 +627,10 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
       OPENAI_BASE_URL: normalizedProfileBaseUrl,
       OPENAI_MODEL: primaryModel,
     }
+    if (route.routeId === 'xai-oauth') {
+      openAIProfileEnv.XAI_OAUTH = '1'
+      openAIProfileEnv.XAI_OAUTH_CREDENTIAL_SOURCE = 'oauth'
+    }
     if (supportsApiFormat && profile.apiFormat) {
       openAIProfileEnv.OPENAI_API_FORMAT = profile.apiFormat
     }
@@ -923,6 +927,11 @@ function buildOpenAICompatibleStartupEnv(
     return null
   }
 
+  const routeId = resolveProfileCapabilityRouteId(
+    activeProfile.provider,
+    activeProfile.baseUrl,
+  )
+
   if (activeProfile.apiKey) {
     const strictEnv = buildOpenAIProfileEnv({
       goal: 'balanced',
@@ -955,6 +964,10 @@ function buildOpenAICompatibleStartupEnv(
     if (activeProfile.authHeaderValue) {
       env.OPENAI_AUTH_HEADER_VALUE = activeProfile.authHeaderValue
     }
+  }
+  if (routeId === 'xai-oauth') {
+    env.XAI_OAUTH = '1'
+    env.XAI_OAUTH_CREDENTIAL_SOURCE = 'oauth'
   }
   if (activeProfile.apiKey) {
     env.OPENAI_API_KEY = activeProfile.apiKey

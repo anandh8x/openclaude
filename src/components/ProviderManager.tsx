@@ -75,6 +75,7 @@ import {
 import { Pane } from './design-system/Pane.js'
 import TextInput from './TextInput.js'
 import { useCodexOAuthFlow } from './useCodexOAuthFlow.js'
+import { useXaiOAuthFlow } from './useXaiOAuthFlow.js'
 
 export type ProviderManagerResult = {
   action: 'saved' | 'cancelled' | 'activated'
@@ -95,6 +96,7 @@ type Screen =
   | 'select-ollama-model'
   | 'select-atomic-chat-model'
   | 'codex-oauth'
+  | 'xai-oauth'
   | 'form'
   | 'preset-model'
   | 'preset-api-key'
@@ -202,6 +204,9 @@ const GITHUB_PROVIDER_DEFAULT_MODEL = 'github:copilot'
 const GITHUB_PROVIDER_DEFAULT_BASE_URL = 'https://models.github.ai/inference'
 const CODEX_OAUTH_PROVIDER_NAME = 'Codex OAuth'
 const CODEX_OAUTH_PROVIDER_MODEL = 'codexplan'
+const XAI_OAUTH_PROVIDER_NAME = 'xAI Grok OAuth (SuperGrok Subscription)'
+const XAI_OAUTH_PROVIDER_MODEL = 'grok-4.3'
+const XAI_OAUTH_PROVIDER_BASE_URL = 'https://api.x.ai/v1'
 
 type GithubCredentialSource = 'stored' | 'env' | 'none'
 
@@ -505,6 +510,100 @@ function CodexOAuthSetup({
         <>
           <Text dimColor>
             Browser opened. Finish the ChatGPT sign-in there and this setup will
+            complete automatically.
+          </Text>
+          <Text>{status.authUrl}</Text>
+        </>
+      ) : (
+        <Text dimColor>Opening your browser...</Text>
+      )}
+      <Text dimColor>Press Esc to cancel and go back.</Text>
+    </Box>
+  )
+}
+
+function XaiOAuthSetup({
+  onBack,
+  onConfigured,
+}: {
+  onBack: () => void
+  onConfigured: (
+    tokens: {
+      accessToken: string
+      refreshToken?: string
+      idToken?: string
+      expiresAt?: number
+    },
+    persistCredentials: (options?: { profileId?: string }) => void,
+  ) => void | Promise<void>
+}): React.ReactNode {
+  const handleAuthenticated = React.useCallback(async (
+    tokens: {
+      accessToken: string
+      refreshToken?: string
+      idToken?: string
+      expiresAt?: number
+    },
+    persistCredentials: (options?: { profileId?: string }) => void,
+  ) => {
+    await onConfigured(tokens, persistCredentials)
+  }, [onConfigured])
+  useKeybinding('confirm:no', onBack)
+
+  const status = useXaiOAuthFlow({
+    onAuthenticated: handleAuthenticated,
+  })
+
+  if (status.state === 'error') {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Text color="error" bold>
+          xAI Grok OAuth failed
+        </Text>
+        <Text>{status.message}</Text>
+        <Text dimColor>Press Enter or Esc to go back.</Text>
+        <Select
+          options={[
+            {
+              value: 'back',
+              label: 'Back',
+              description: 'Return to provider presets',
+            },
+          ]}
+          onChange={onBack}
+          onCancel={onBack}
+          visibleOptionCount={1}
+        />
+      </Box>
+    )
+  }
+
+  return (
+    <Box flexDirection="column" gap={1}>
+      <Text color="remember" bold>
+        xAI Grok OAuth
+      </Text>
+      <Text>
+        Sign in with the xAI account that owns your Grok or SuperGrok
+        subscription. OpenClaude will store the OAuth tokens securely.
+      </Text>
+      {status.state === 'starting' ? (
+        <Text dimColor>Starting local callback and preparing your browser...</Text>
+      ) : status.browserOpened === false ? (
+        <>
+          <Text color="warning">
+            Browser did not open automatically. Visit this URL to continue:
+          </Text>
+          <Text>{status.authUrl}</Text>
+          <Text dimColor>
+            On a remote machine, forward local port 56121 to the remote
+            127.0.0.1:56121 callback before opening the URL.
+          </Text>
+        </>
+      ) : status.browserOpened === true ? (
+        <>
+          <Text dimColor>
+            Browser opened. Finish xAI sign-in there and this setup will
             complete automatically.
           </Text>
           <Text>{status.authUrl}</Text>
@@ -1587,6 +1686,10 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
               setScreen('codex-oauth')
               return
             }
+            if (value === 'xai-oauth') {
+              setScreen('xai-oauth')
+              return
+            }
             startCreateFromPreset(value as ProviderPreset)
           }}
           onCancel={() => {
@@ -2063,6 +2166,75 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
               activationWarning,
               warnings,
             })
+
+            if (mode === 'first-run') {
+              onDone({
+                action: 'saved',
+                activeProfileId: active.id,
+                message,
+              })
+              return
+            }
+
+            setStatusMessage(message)
+            setErrorMessage(undefined)
+            returnToMenu()
+          }}
+        />
+      )
+      break
+    case 'xai-oauth':
+      content = (
+        <XaiOAuthSetup
+          onBack={() => setScreen('select-preset')}
+          onConfigured={async (_tokens, persistCredentials) => {
+            const payload: ProviderProfileInput = {
+              provider: 'xai-oauth',
+              name: XAI_OAUTH_PROVIDER_NAME,
+              baseUrl: XAI_OAUTH_PROVIDER_BASE_URL,
+              model: XAI_OAUTH_PROVIDER_MODEL,
+              apiKey: '',
+            }
+
+            const existing = getProviderProfiles().find(
+              profile => profile.provider === 'xai-oauth',
+            )
+            const saved = existing
+              ? updateProviderProfile(existing.id, payload)
+              : addProviderProfile(payload, { makeActive: false })
+
+            if (!saved) {
+              setErrorMessage(
+                'xAI Grok OAuth login finished, but the provider profile could not be saved.',
+              )
+              returnToMenu()
+              return
+            }
+
+            persistCredentials({ profileId: saved.id })
+            const active =
+              activeProfileId === saved.id
+                ? saved
+                : setActiveProviderProfile(saved.id)
+            if (!active) {
+              setErrorMessage(
+                'xAI Grok OAuth login finished, but the provider could not be set as the startup provider.',
+              )
+              returnToMenu()
+              return
+            }
+
+            const settingsOverrideError =
+              clearStartupProviderOverrideFromUserSettings()
+            setAppState(prev => ({
+              ...prev,
+              mainLoopModel: XAI_OAUTH_PROVIDER_MODEL,
+              mainLoopModelForSession: null,
+            }))
+            refreshProfiles()
+            const message = settingsOverrideError
+              ? `xAI Grok OAuth configured. Warning: could not clear startup provider override (${settingsOverrideError}).`
+              : 'xAI Grok OAuth configured.'
 
             if (mode === 'first-run') {
               onDone({

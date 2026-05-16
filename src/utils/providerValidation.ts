@@ -25,6 +25,7 @@ import {
   resolveProviderRequest,
   shouldUseCodexTransport,
 } from '../services/api/providerConfig.js'
+import { readXaiOAuthCredentialsAsync } from './xaiOAuthCredentials.js'
 import { getGlobalClaudeFile } from './env.js'
 import { isBareMode } from './envUtils.js'
 import {
@@ -283,6 +284,13 @@ async function getDescriptorValidationError(
   const validation = target.descriptor.validation
   if (!validation) {
     return null
+  }
+
+  if (target.descriptor.id === 'xai-oauth') {
+    const credentials = await readXaiOAuthCredentialsAsync()
+    return credentials?.accessToken
+      ? null
+      : 'xAI Grok OAuth credentials are required. Choose xAI Grok OAuth in /provider to sign in.'
   }
 
   switch (validation.kind) {

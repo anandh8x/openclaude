@@ -231,6 +231,10 @@ function getConfiguredOpenAICompatibleProviderLabel(
     model?: string
   },
 ): string {
+  if (isEnvTruthy(options?.processEnv?.XAI_OAUTH ?? process.env.XAI_OAUTH)) {
+    return getRouteLabel('xai-oauth') ?? 'xAI Grok OAuth'
+  }
+
   const routeId = resolveRouteIdFromBaseUrl(baseUrl)
   if (routeId) {
     return getRouteLabel(routeId) ?? 'OpenAI-compatible'

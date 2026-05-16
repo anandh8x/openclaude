@@ -555,6 +555,9 @@ export function resolveRouteIdFromBaseUrl(
   )
 
   for (const route of routes) {
+    if (route.id === 'xai-oauth') {
+      continue
+    }
     const normalizedDefaultBaseUrl = normalizeComparableBaseUrl(
       route.defaultBaseUrl,
     )
@@ -568,6 +571,9 @@ export function resolveRouteIdFromBaseUrl(
 
   if (normalizedHost) {
     for (const route of routes) {
+      if (route.id === 'xai-oauth') {
+        continue
+      }
       if (getValidationRoutingHosts(route).includes(normalizedHost)) {
         return route.id
       }
@@ -588,6 +594,10 @@ export function resolveActiveRouteIdFromEnv(
     activeProfileProvider?: string
   },
 ): string | null {
+  if (isEnvTruthy(processEnv.XAI_OAUTH)) {
+    return 'xai-oauth'
+  }
+
   if (isEnvTruthy(processEnv.CLAUDE_CODE_USE_GEMINI)) {
     return 'gemini'
   }

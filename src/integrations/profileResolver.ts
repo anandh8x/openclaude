@@ -11,6 +11,16 @@ export type ResolvedProfileRoute = {
   routeId: string
 }
 
+const PROVIDER_ALIASES: Record<string, string> = {
+  'grok-oauth': 'xai-oauth',
+  'x-ai-oauth': 'xai-oauth',
+  'xai-grok-oauth': 'xai-oauth',
+}
+
+export function normalizeProviderRouteAlias(provider: string): string {
+  return PROVIDER_ALIASES[provider.trim().toLowerCase()] ?? provider
+}
+
 /**
  * Resolve a stored profile provider string to a route.
  *
@@ -21,19 +31,21 @@ export type ResolvedProfileRoute = {
  *   4. Return safe unknown-provider fallback
  */
 export function resolveProfileRoute(provider: string): ResolvedProfileRoute {
+  const normalizedProvider = normalizeProviderRouteAlias(provider)
+
   // 1. Try preset mapping
-  if (isProviderPreset(provider)) {
-    return routeForPreset(provider)
+  if (isProviderPreset(normalizedProvider)) {
+    return routeForPreset(normalizedProvider)
   }
 
   // 2. Try direct vendor id
-  const vendor = getVendor(provider)
+  const vendor = getVendor(normalizedProvider)
   if (vendor) {
     return { vendorId: vendor.id, routeId: vendor.id }
   }
 
   // 3. Try gateway id
-  const gateway = getGateway(provider)
+  const gateway = getGateway(normalizedProvider)
   if (gateway) {
     return {
       vendorId: gateway.vendorId ?? 'openai',

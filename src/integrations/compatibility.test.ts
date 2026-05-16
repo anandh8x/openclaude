@@ -35,6 +35,7 @@ const EXPECTED_PRESETS = [
   'nvidia-nim',
   'minimax',
   'xai',
+  'xai-oauth',
   'venice',
   'xiaomi-mimo',
   'zai',
@@ -82,4 +83,14 @@ describe('compatibility mappings', () => {
       routeId: 'vertex',
     })
   })
+
+  test.each(['grok-oauth', 'x-ai-oauth', 'xai-grok-oauth'])(
+    'xAI OAuth alias %s resolves to xai-oauth',
+    alias => {
+      expect(resolveProfileRoute(alias)).toEqual({
+        vendorId: 'xai-oauth',
+        routeId: 'xai-oauth',
+      })
+    },
+  )
 })
