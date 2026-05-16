@@ -113,6 +113,19 @@ test('resolveActiveRouteIdFromEnv treats xAI credential-only env as xAI', () => 
   ).toBe('xai')
 })
 
+test('xAI OAuth route is explicit and does not steal the xAI API-key base URL', () => {
+  expect(getRouteDefaultBaseUrl('xai-oauth')).toBe('https://api.x.ai/v1')
+  expect(getRouteDefaultModel('xai-oauth')).toBe('grok-4.3')
+  expect(resolveRouteIdFromBaseUrl('https://api.x.ai/v1')).toBe('xai')
+  expect(
+    resolveActiveRouteIdFromEnv({
+      CLAUDE_CODE_USE_OPENAI: '1',
+      XAI_OAUTH: '1',
+      OPENAI_BASE_URL: 'https://api.x.ai/v1',
+    }),
+  ).toBe('xai-oauth')
+})
+
 test('resolveActiveRouteIdFromEnv prefers xAI when env-only keys compete', () => {
   expect(
     resolveActiveRouteIdFromEnv({

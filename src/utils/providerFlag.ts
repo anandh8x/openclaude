@@ -19,6 +19,7 @@ import {
   getAllVendors,
   getGateway,
   getVendor,
+  normalizeProviderRouteAlias,
   resolveProfileRoute,
 } from '../integrations/index.js'
 import { PRESET_VENDOR_MAP } from '../integrations/compatibility.js'
@@ -28,6 +29,7 @@ const PREFERRED_PROVIDER_ORDER = [
   'bankr',
   'zai',
   'xai',
+  'xai-oauth',
   'xiaomi-mimo',
   'openai',
   'gemini',
@@ -48,6 +50,9 @@ function buildValidProviders(): string[] {
     ...PRESET_VENDOR_MAP.map(mapping => mapping.preset),
     ...getAllVendors().map(vendor => vendor.id),
     ...getAllGateways().map(gateway => gateway.id),
+    'grok-oauth',
+    'x-ai-oauth',
+    'xai-grok-oauth',
   ])
 
   const preferred = PREFERRED_PROVIDER_ORDER.filter(provider =>
@@ -177,9 +182,12 @@ export function applyProviderFlag(
   provider: string,
   args: string[],
 ): { error?: string } {
-  if (!VALID_PROVIDERS.includes(provider)) {
+  const requestedProvider = provider
+  provider = normalizeProviderRouteAlias(provider)
+
+  if (!VALID_PROVIDERS.includes(requestedProvider) && !VALID_PROVIDERS.includes(provider)) {
     return {
-      error: `Unknown provider "${provider}". Valid providers: ${VALID_PROVIDERS.join(', ')}`,
+      error: `Unknown provider "${requestedProvider}". Valid providers: ${VALID_PROVIDERS.join(', ')}`,
     }
   }
 
@@ -212,6 +220,8 @@ export function applyProviderFlag(
   delete process.env.CLAUDE_CODE_USE_BEDROCK
   delete process.env.CLAUDE_CODE_USE_VERTEX
   delete process.env.NVIDIA_NIM
+  delete process.env.XAI_OAUTH
+  delete process.env.XAI_OAUTH_CREDENTIAL_SOURCE
   if (copiedOpenAIKeyProvider && provider !== copiedOpenAIKeyProvider) {
     delete process.env.OPENAI_API_KEY
   }
@@ -301,6 +311,16 @@ export function applyProviderFlag(
       if (process.env.XAI_API_KEY && !process.env.OPENAI_API_KEY) {
         process.env.OPENAI_API_KEY = process.env.XAI_API_KEY
       }
+      break
+
+    case 'xai-oauth':
+      process.env.CLAUDE_CODE_USE_OPENAI = '1'
+      process.env.XAI_OAUTH = '1'
+      process.env.XAI_OAUTH_CREDENTIAL_SOURCE = 'oauth'
+      process.env.OPENAI_BASE_URL ??= defaultBaseUrl ?? 'https://api.x.ai/v1'
+      process.env.OPENAI_MODEL ??= defaultModel ?? 'grok-4.3'
+      delete process.env.OPENAI_API_KEY
+      if (model) process.env.OPENAI_MODEL = model
       break
 
     case 'xiaomi-mimo':

@@ -30,6 +30,10 @@ import {
   readCodexCredentialsAsync,
   refreshCodexAccessTokenIfNeeded,
 } from '../../utils/codexCredentials.js'
+import {
+  readXaiOAuthCredentialsAsync,
+  refreshXaiOAuthAccessTokenIfNeeded,
+} from '../../utils/xaiOAuthCredentials.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { isBareMode, isEnvTruthy } from '../../utils/envUtils.js'
 import { resolveGeminiCredential } from '../../utils/geminiAuth.js'
@@ -70,6 +74,7 @@ import {
   classifyOpenAIHttpFailure,
   classifyOpenAINetworkFailure,
 } from './openaiErrorClassification.js'
+import { getXaiOAuthEntitlementMessage } from './xaiOAuthShared.js'
 import { sanitizeSchemaForOpenAICompat } from '../../utils/schemaSanitizer.js'
 import { redactSecretValueForDisplay } from '../../utils/providerProfile.js'
 import { shouldRedactUrlQueryParam } from '../../utils/urlRedaction.js'
@@ -93,6 +98,7 @@ type SecretValueSource = Partial<{
   GOOGLE_API_KEY: string
   GEMINI_ACCESS_TOKEN: string
   MISTRAL_API_KEY: string
+  XAI_OAUTH_ACCESS_TOKEN: string
 }>
 
 const GITHUB_429_MAX_RETRIES = 3
@@ -108,6 +114,25 @@ const COPILOT_HEADERS: Record<string, string> = {
 
 function isGithubModelsMode(): boolean {
   return isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+}
+
+function isXaiOAuthMode(baseUrl: string): boolean {
+  if (!isEnvTruthy(process.env.XAI_OAUTH)) {
+    return false
+  }
+
+  try {
+    return new URL(baseUrl).hostname.toLowerCase() === 'api.x.ai'
+  } catch {
+    return false
+  }
+}
+
+function isHttpStatusError(error: unknown, status: number): boolean {
+  return (
+    error instanceof APIError &&
+    error.status === status
+  )
 }
 
 function filterAnthropicHeaders(
@@ -1529,6 +1554,69 @@ class OpenAIShimMessages {
         },
         signal: options?.signal,
       })
+    }
+
+    if (request.transport === 'codex_responses' && isXaiOAuthMode(request.baseUrl)) {
+      const refreshResult = await refreshXaiOAuthAccessTokenIfNeeded().catch(
+        async error => {
+          logForDebugging(
+            `[xai-oauth] access token refresh failed before request: ${error instanceof Error ? error.message : String(error)}`,
+            { level: 'warn' },
+          )
+          return {
+            refreshed: false,
+            credentials: await readXaiOAuthCredentialsAsync(),
+          }
+        },
+      )
+      const credentials = refreshResult.credentials ?? await readXaiOAuthCredentialsAsync()
+      if (!credentials?.accessToken) {
+        throw new Error(
+          'xAI Grok OAuth credentials are required. Choose xAI Grok OAuth in /provider to sign in.',
+        )
+      }
+
+      const perform = (accessToken: string): Promise<Response> =>
+        performCodexRequest({
+          request,
+          credentials: {
+            apiKey: accessToken,
+            source: 'secure-storage',
+          },
+          params,
+          defaultHeaders: {
+            ...this.defaultHeaders,
+            ...filterAnthropicHeaders(options?.headers),
+          },
+          signal: options?.signal,
+        })
+
+      try {
+        return await perform(credentials.accessToken)
+      } catch (error) {
+        if (isHttpStatusError(error, 401) && credentials.refreshToken) {
+          const retryRefresh = await refreshXaiOAuthAccessTokenIfNeeded({
+            force: true,
+          })
+          const retryToken = retryRefresh.credentials?.accessToken
+          if (retryToken && retryToken !== credentials.accessToken) {
+            try {
+              return await perform(retryToken)
+            } catch (retryError) {
+              if (isHttpStatusError(retryError, 403)) {
+                throw new Error(getXaiOAuthEntitlementMessage())
+              }
+              throw retryError
+            }
+          }
+        }
+
+        if (isHttpStatusError(error, 403)) {
+          throw new Error(getXaiOAuthEntitlementMessage())
+        }
+
+        throw error
+      }
     }
 
     if (request.transport === 'codex_responses' && !isGithubMode) {

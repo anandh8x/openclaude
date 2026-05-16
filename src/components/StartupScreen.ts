@@ -112,6 +112,9 @@ export function detectProvider(modelOverride?: string): { name: string; model: s
     // Explicit dedicated-provider env flags win.
     if (process.env.NVIDIA_NIM) name = 'NVIDIA NIM'
     else if (process.env.MINIMAX_API_KEY) name = 'MiniMax'
+    else if (process.env.XAI_OAUTH) {
+      name = getRouteLabel('xai-oauth') ?? 'xAI Grok OAuth'
+    }
     else if (
       resolvedRequest.transport === 'codex_responses' ||
       baseUrl.includes('chatgpt.com/backend-api/codex')

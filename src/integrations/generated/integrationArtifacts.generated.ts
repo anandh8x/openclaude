@@ -10,6 +10,7 @@ import vendorMinimax from '../vendors/minimax.js'
 import vendorMoonshot from '../vendors/moonshot.js'
 import vendorOpenai from '../vendors/openai.js'
 import vendorVenice from '../vendors/venice.js'
+import vendorXaiOauth from '../vendors/xai-oauth.js'
 import vendorXai from '../vendors/xai.js'
 import vendorXiaomiMimo from '../vendors/xiaomi-mimo.js'
 import vendorZai from '../vendors/zai.js'
@@ -60,7 +61,7 @@ import modelQwen from '../models/qwen.js'
 import modelXai from '../models/xai.js'
 import modelXiaomiMimo from '../models/xiaomi-mimo.js'
 
-export const VENDOR_DESCRIPTORS = [vendorAnthropic, vendorBankr, vendorDeepseek, vendorGemini, vendorMinimax, vendorMoonshot, vendorOpenai, vendorVenice, vendorXai, vendorXiaomiMimo, vendorZai] as const satisfies readonly VendorDescriptor[]
+export const VENDOR_DESCRIPTORS = [vendorAnthropic, vendorBankr, vendorDeepseek, vendorGemini, vendorMinimax, vendorMoonshot, vendorOpenai, vendorVenice, vendorXaiOauth, vendorXai, vendorXiaomiMimo, vendorZai] as const satisfies readonly VendorDescriptor[]
 export const GATEWAY_DESCRIPTORS = [gatewayAtomicChat, gatewayAzureOpenai, gatewayBedrock, gatewayCustom, gatewayDashscopeCn, gatewayDashscopeIntl, gatewayGithub, gatewayGitlawbOpengateway, gatewayGroq, gatewayHicap, gatewayKimiCode, gatewayLmstudio, gatewayMistral, gatewayNvidiaNim, gatewayOllama, gatewayOpenrouter, gatewayTogether, gatewayVertex] as const satisfies readonly GatewayDescriptor[]
 export const ANTHROPIC_PROXY_DESCRIPTORS = [] as const satisfies readonly AnthropicProxyDescriptor[]
 export const BRAND_DESCRIPTORS = [brandClaude, brandDeepseek, brandGemini, brandGlm, brandGpt, brandKimi, brandLlama, brandMinimax, brandMistral, brandNemotron, brandOpenaiCompatibleAlias, brandQwen, brandXai, brandXiaomiMimo] as const satisfies readonly BrandDescriptor[]
@@ -316,6 +317,19 @@ export const PROVIDER_PRESET_MANIFEST = [
     ]
   },
   {
+    "preset": "xai-oauth",
+    "routeKind": "vendor",
+    "routeId": "xai-oauth",
+    "vendorId": "xai-oauth",
+    "description": "Use a Grok/SuperGrok subscription through browser OAuth",
+    "label": "xAI Grok OAuth",
+    "name": "xAI Grok OAuth (SuperGrok Subscription)",
+    "apiKeyEnvVars": [],
+    "modelEnvVars": [
+      "OPENAI_MODEL"
+    ]
+  },
+  {
     "preset": "venice",
     "routeKind": "vendor",
     "routeId": "venice",
@@ -416,6 +430,7 @@ export const ORDERED_PROVIDER_PRESETS = [
   "openai",
   "openrouter",
   "together",
+  "xai-oauth",
   "venice",
   "xai",
   "xiaomi-mimo",

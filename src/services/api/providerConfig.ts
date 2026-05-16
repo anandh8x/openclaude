@@ -303,6 +303,18 @@ export function shouldUseCodexTransport(
   return isCodexBaseUrl(explicitBaseUrl) || (!explicitBaseUrl && isCodexAlias(model))
 }
 
+function shouldUseXaiOAuthTransport(baseUrl: string | undefined): boolean {
+  if (!isEnvTruthy(process.env.XAI_OAUTH)) {
+    return false
+  }
+
+  try {
+    return new URL(baseUrl ?? 'https://api.x.ai/v1').hostname.toLowerCase() === 'api.x.ai'
+  } catch {
+    return false
+  }
+}
+
 function shouldUseGithubResponsesApi(model: string): boolean {
   const normalized = model.trim().toLowerCase()
 
@@ -703,7 +715,8 @@ export function resolveProviderRequest(options?: {
       )
     })()
   const transport: ProviderTransport =
-    shouldUseCodexTransport(requestedModel, finalBaseUrl) ||
+    shouldUseXaiOAuthTransport(finalBaseUrl) ||
+      shouldUseCodexTransport(requestedModel, finalBaseUrl) ||
       (isGithubCopilot && shouldUseGithubResponsesApi(githubResolvedModel))
       ? 'codex_responses'
       : requestedApiFormat === 'responses' && supportsRequestedApiFormat
